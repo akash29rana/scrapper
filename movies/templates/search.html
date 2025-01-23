@@ -1,0 +1,199 @@
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="csrfmiddlewaretoken" content="{{ csrf_token }}">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+            }
+    
+            #progress-container {
+                width: 100%;
+                background-color: #f3f3f3;
+                border-radius: 5px;
+                margin-top: 50px;
+                height: 30px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+                visibility: hidden;
+            }
+    
+            #progress-bar {
+                width: 0;
+                height: 100%;
+                background-color: #4caf50;
+                border-radius: 5px;
+                text-align: center;
+                color: white;
+                line-height: 30px; /* Center text vertically */
+                font-weight: bold;
+            }
+    
+            #progress-text {
+                margin-top: 10px;
+                font-size: 18px;
+            }
+
+
+            table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        td {
+            max-width: 200px;  /* Set a maximum width for the cell */
+            overflow: hidden;  /* Hide the overflow content */
+            white-space: nowrap;  /* Prevent wrapping the text */
+            text-overflow: ellipsis;  /* Add ellipsis (...) to truncated text */
+        }
+        #movie_table{
+            visibility: hidden;
+            margin-top: 50px;
+        }
+        </style>
+    </head>
+    <body>
+        <!-- movies/templates/movies/search.html -->
+        <!-- <form method="get" action="{% url 'search_movies' %}"> -->
+            <h1>IMDb Scrapper </h1>
+            <input type="text" id = "genre" name="genre" placeholder="Enter genre (e.g., Action)">
+            <button  onclick="dosearch()">Search</button>
+        <!-- </form> -->
+        <br>
+
+        <div id="progress-container">
+            <div id="progress-bar">0%</div>
+            <div id="progress-text">0%</div>
+        </div>
+    
+        
+
+        <div id = "movie_table">
+            <h2>Movie Table</h2>
+            <table id="movieTable">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Year</th>
+                        <th>Rating</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+       
+        <script>
+            let genre = "";
+            let scrappingInProgress = false;
+            function getCSRFToken() {
+                // This function assumes that you have a CSRF token in the HTML template in a meta tag
+                let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').content;
+                return csrfToken;
+            }
+            function dosearch() {
+                if(!scrappingInProgress)
+                {
+                    genre = document.getElementById('genre').value;
+                    scrappingInProgress = true;
+
+                    document.getElementById('progress-bar').style.width = "0" + '%';
+                    document.getElementById('progress-text').innerText = "0" + '%';
+
+                    document.getElementById('progress-bar').innerText ="0" + '%';
+                    document.getElementById('progress-container').style.visibility = "visible";
+                    document.getElementById('movie_table').style.visibility = "hidden";
+                    clearTable();
+                    fetch('/search/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCSRFToken()   // Send data as JSON
+                        },
+                        body: JSON.stringify({ genre: genre })  // Send the genre in the body
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        populateTable(data.movies)
+                       // console.log('Search result:', data);  // Handle the response from the server
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+                }
+                
+            }
+            function clearTable() {
+                const tableBody = document.querySelector("#movieTable tbody");
+                tableBody.innerHTML = "";  // This will remove all rows inside the tbody
+            }
+
+            function populateTable(data) {
+                document.getElementById('movie_table').style.visibility = "visible";
+                const tableBody = document.querySelector("#movieTable tbody");
+                data.forEach(movie => {
+                    const row = document.createElement("tr");
+
+                    const titleCell = document.createElement("td");
+                    titleCell.textContent = movie.title;
+                    row.appendChild(titleCell);
+
+                    
+
+                    const yearCell = document.createElement("td");
+                    yearCell.textContent = movie.year;
+                    row.appendChild(yearCell);
+
+                    const ratingCell = document.createElement("td");
+                    ratingCell.textContent = movie.rating;
+                    row.appendChild(ratingCell);
+
+                    const descriptionCell = document.createElement("td");
+                    descriptionCell.textContent = movie.description;
+                    row.appendChild(descriptionCell);
+
+                    tableBody.appendChild(row);
+                });
+            }
+            function fetchProgress() {
+                if(scrappingInProgress)
+                {
+                    fetch(`/get-scraping-progress/?genre=${encodeURIComponent(genre)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("scraping ---- " + data.progress);
+                        const progress = data.progress;
+                        document.getElementById('progress-bar').style.width = progress + '%';
+                        document.getElementById('progress-bar').innerText = Math.round(progress) + '%';
+                        document.getElementById('progress-text').innerText = Math.round(progress) + '%';
+                        if(Math.round(progress) == 100)
+                        {
+                            scrappingInProgress = false;
+
+                        }
+                    });
+                    
+                }
+                
+            }
+
+            
+            
+            // Update progress every second
+            setInterval(fetchProgress, 3000);
+            </script>
+    </body>
+</html>
